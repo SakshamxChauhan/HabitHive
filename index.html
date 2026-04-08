@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1>Habit Tracker</h1>
+        <p>Build better routines one habit at a time.</p>
+      </header>
+
+      <section class="panel">
+        <form id="habit-form" class="habit-form">
+          <input
+            id="habit-input"
+            type="text"
+            placeholder="Add a new habit..."
+            aria-label="Add a new habit"
+            required
+          />
+          <button type="submit">Add Habit</button>
+        </form>
+
+        <div class="controls">
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search habits..."
+            aria-label="Search habits"
+          />
+
+          <div class="control-group">
+            <label for="filter-select">Filter:</label>
+            <select id="filter-select" aria-label="Filter habits">
+              <option value="all">All</option>
+              <option value="completed">Completed</option>
+              <option value="incomplete">Incomplete</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="sort-select">Sort:</label>
+            <select id="sort-select" aria-label="Sort habits">
+              <option value="default">Default</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="status">Completion Status</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span id="progress-text">0 / 0 completed</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <ul id="habit-list" class="habit-list"></ul>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
