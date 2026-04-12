@@ -1,210 +1,209 @@
+const { useState, useEffect } = React;
 
-const API_URL = "https://jsonplaceholder.typicode.com/todos?_limit=12";
-const STORAGE_KEY = "habitTrackerData_v1";
+function HabitTracker() {
+    // ---- State Management ----
+    const [habits, setHabits] = useState([]);
+    const [newHabit, setNewHabit] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'completed', 'incomplete'
+    const [sortBy, setSortBy] = useState('default'); // 'default', 'alphabetical', 'completion'
+    const [darkMode, setDarkMode] = useState(false);
+    
+    // Quote State
+    const [quote, setQuote] = useState({ text: '', author: '', loading: true, error: false });
 
-const state = {
-  habits: [],
-  filter: "all",
-  sort: "default",
-  search: "",
-};
+    // ---- Effects ----
+    // Fetch Daily Quote
+    useEffect(() => {
+        const fetchQuote = async () => {
+            try {
+                // Note: ZenQuotes API restricts direct browser fetches due to CORS. 
+                // We use a public CORS proxy (allorigins) to ensure the request strictly succeeds dynamically.
+                const targetUrl = encodeURIComponent('https://zenquotes.io/api/today');
+                const response = await fetch(`https://api.allorigins.win/get?url=${targetUrl}`);
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                const parsedData = JSON.parse(data.contents);
+                
+                setQuote({
+                    text: parsedData[0].q,
+                    author: parsedData[0].a,
+                    loading: false,
+                    error: false
+                });
+            } catch (error) {
+                console.error('Error fetching quote:', error);
+                setQuote({
+                    text: "Fall seven times and stand up eight.",
+                    author: "Japanese Proverb",
+                    loading: false,
+                    error: true
+                });
+            }
+        };
+        fetchQuote();
+    }, []);
 
-const habitForm = document.getElementById("habit-form");
-const habitInput = document.getElementById("habit-input");
-const searchInput = document.getElementById("search-input");
-const filterSelect = document.getElementById("filter-select");
-const sortSelect = document.getElementById("sort-select");
-const habitList = document.getElementById("habit-list");
-const progressText = document.getElementById("progress-text");
-const progressFill = document.getElementById("progress-fill");
+    // Toggle Dark Mode globally
+    useEffect(() => {
+        darkMode ? document.body.classList.add('dark-mode') : document.body.classList.remove('dark-mode');
+    }, [darkMode]);
 
-const generateId = () =>
-  (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    // ---- Actions ----
+    const handleAddHabit = (e) => {
+        e.preventDefault();
+        if (!newHabit.trim()) return;
+        
+        const habit = {
+            id: Date.now(),
+            text: newHabit.trim(),
+            completed: false
+        };
+        
+        // Using Spread Operator (No loops)
+        setHabits([...habits, habit]);
+        setNewHabit('');
+    };
 
-// Persist habits to localStorage for a better user experience.
-const saveHabits = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.habits));
-};
+    const toggleCompletion = (id) => {
+        // Using map() (Higher-Order Function)
+        setHabits(habits.map(habit => 
+            habit.id === id ? { ...habit, completed: !habit.completed } : habit
+        ));
+    };
 
-const loadHabits = () => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
+    const deleteHabit = (id) => {
+        // Using filter() (Higher-Order Function)
+        setHabits(habits.filter(habit => habit.id !== id));
+    };
 
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch (error) {
-    console.error("Failed to parse localStorage data:", error);
-    return null;
-  }
-};
+    // ---- Data Processing (Search, Filter, Sort) strictly using HOFs ----
+    const processHabits = () => {
+        return habits
+            // 1. Search (filter)
+            .filter(habit => 
+                habit.text.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            // 2. Filter by Status (filter)
+            .filter(habit => {
+                if (filterStatus === 'completed') return habit.completed;
+                if (filterStatus === 'incomplete') return !habit.completed;
+                return true; // 'all'
+            })
+            // 3. Sort (sort)
+            .sort((a, b) => {
+                if (sortBy === 'alphabetical') {
+                    return a.text.localeCompare(b.text);
+                }
+                if (sortBy === 'completion') {
+                    // Incomplete (false/0) comes before Completed (true/1)
+                    return Number(a.completed) - Number(b.completed);
+                }
+                return 0; // 'default' keeps chronological order based on id
+            });
+    };
 
-const updateProgress = () => {
-  const total = state.habits.length;
-  const completedCount = state.habits.filter((habit) => habit.completed).length;
-  const percentage = total ? (completedCount / total) * 100 : 0;
+    const displayedHabits = processHabits();
 
-  progressText.textContent = `${completedCount} / ${total} completed`;
-  progressFill.style.width = `${percentage}%`;
-};
+    // ---- Render ----
+    return (
+        <div className="app-container">
+            <header>
+                <h1><i className="fa-solid fa-list-check"></i> Habit Tracker</h1>
+                <button 
+                    className="theme-toggle" 
+                    onClick={() => setDarkMode(!darkMode)}
+                    title="Toggle Dark/Light Mode"
+                >
+                    <i className={darkMode ? "fa-solid fa-sun" : "fa-solid fa-moon"}></i>
+                </button>
+            </header>
 
-const getProcessedHabits = () => {
-  let habits = [...state.habits];
+            {/* Quote Section */}
+            <div className="quote-section">
+                {quote.loading ? (
+                    <p><i className="fa-solid fa-spinner fa-spin"></i> Loading daily motivation...</p>
+                ) : (
+                    <div>
+                        <p>"{quote.text}"</p>
+                        <span className="quote-author">- {quote.author}</span>
+                    </div>
+                )}
+            </div>
 
-  if (state.search.trim()) {
-    const query = state.search.toLowerCase();
-    habits = habits.filter((habit) => habit.title.toLowerCase().includes(query));
-  }
+            {/* Input & Controls Grid */}
+            <div className="controls-grid">
+                <form className="input-group" onSubmit={handleAddHabit}>
+                    <input 
+                        type="text" 
+                        placeholder="Add a new habit..." 
+                        value={newHabit}
+                        onChange={(e) => setNewHabit(e.target.value)}
+                    />
+                    <button type="submit"><i className="fa-solid fa-plus"></i></button>
+                </form>
 
-  if (state.filter === "completed") {
-    habits = habits.filter((habit) => habit.completed);
-  } else if (state.filter === "incomplete") {
-    habits = habits.filter((habit) => !habit.completed);
-  }
+                <input 
+                    type="text" 
+                    placeholder="Search habits..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
 
-  if (state.sort === "alphabetical") {
-    habits.sort((a, b) => a.title.localeCompare(b.title));
-  } else if (state.sort === "status") {
-    habits.sort((a, b) => Number(a.completed) - Number(b.completed));
-  }
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                    <option value="all">All Habits</option>
+                    <option value="completed">Completed</option>
+                    <option value="incomplete">Incomplete</option>
+                </select>
 
-  return habits;
-};
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                    <option value="default">Sort: Default</option>
+                    <option value="alphabetical">Sort: Alphabetical</option>
+                    <option value="completion">Sort: Completion Status</option>
+                </select>
+            </div>
 
-const createHabitItemMarkup = (habit) => `
-  <li class="habit-item">
-    <div class="habit-main">
-      <input
-        type="checkbox"
-        class="toggle-checkbox"
-        data-id="${habit.id}"
-        ${habit.completed ? "checked" : ""}
-        aria-label="Mark ${habit.title} as completed"
-      />
-      <p class="habit-title ${habit.completed ? "completed" : ""}">${habit.title}</p>
-    </div>
-    <button class="delete-btn" data-id="${habit.id}" aria-label="Delete ${habit.title}">
-      Delete
-    </button>
-  </li>
-`;
+            {/* Habit List */}
+            <div className="habit-list">
+                {displayedHabits.length === 0 ? (
+                    <div className="empty-state">
+                        <p>No habits found. Start by adding one!</p>
+                    </div>
+                ) : (
+                    displayedHabits.map(habit => (
+                        <div key={habit.id} className="habit-item">
+                            <div className="habit-info">
+                                <i className={`fa-solid ${habit.completed ? 'fa-circle-check' : 'fa-circle'}`} 
+                                   style={{ color: habit.completed ? 'var(--success-color)' : 'var(--text-color)' }}>
+                                </i>
+                                <span className={`habit-text ${habit.completed ? 'completed-text' : ''}`}>
+                                    {habit.text}
+                                </span>
+                            </div>
+                            <div className="habit-actions">
+                                <button 
+                                    className="btn-complete" 
+                                    onClick={() => toggleCompletion(habit.id)}
+                                >
+                                    {habit.completed ? 'Undo' : 'Done'}
+                                </button>
+                                <button 
+                                    className="btn-delete" 
+                                    onClick={() => deleteHabit(habit.id)}
+                                >
+                                    <i className="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
 
-const renderHabits = () => {
-  const habits = getProcessedHabits();
-
-  if (!habits.length) {
-    habitList.innerHTML = `<li class="empty-state">No habits found.</li>`;
-    updateProgress();
-    return;
-  }
-
-  // map() is used to transform each habit object into HTML markup.
-  habitList.innerHTML = habits.map(createHabitItemMarkup).join("");
-  updateProgress();
-};
-
-const addHabit = (title) => {
-  const trimmedTitle = title.trim();
-  if (!trimmedTitle) return;
-
-  state.habits.unshift({
-    id: generateId(),
-    title: trimmedTitle,
-    completed: false,
-  });
-
-  saveHabits();
-  renderHabits();
-};
-
-const toggleHabit = (id) => {
-  // find() identifies the exact habit object that should be toggled.
-  const habit = state.habits.find((entry) => String(entry.id) === id);
-  if (!habit) return;
-
-  habit.completed = !habit.completed;
-  saveHabits();
-  renderHabits();
-};
-
-const deleteHabit = (id) => {
-  state.habits = state.habits.filter((entry) => String(entry.id) !== id);
-  saveHabits();
-  renderHabits();
-};
-
-const fetchHabitsFromAPI = async () => {
-  const response = await fetch(API_URL);
-  if (!response.ok) throw new Error("Failed to fetch habits");
-
-  const data = await response.json();
-
-  // map() shapes API data into our internal habit format.
-  return data.map((todo) => ({
-    id: String(todo.id),
-    title: todo.title,
-    completed: todo.completed,
-  }));
-};
-
-const initialize = async () => {
-  const cachedHabits = loadHabits();
-
-  if (cachedHabits && cachedHabits.length) {
-    state.habits = cachedHabits;
-    renderHabits();
-    return;
-  }
-
-  try {
-    state.habits = await fetchHabitsFromAPI();
-  } catch (error) {
-    console.error(error);
-    state.habits = [];
-  }
-
-  saveHabits();
-  renderHabits();
-};
-
-habitForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  addHabit(habitInput.value);
-  habitInput.value = "";
-  habitInput.focus();
-});
-
-searchInput.addEventListener("input", (event) => {
-  state.search = event.target.value;
-  renderHabits();
-});
-
-filterSelect.addEventListener("change", (event) => {
-  state.filter = event.target.value;
-  renderHabits();
-});
-
-sortSelect.addEventListener("change", (event) => {
-  state.sort = event.target.value;
-  renderHabits();
-});
-
-habitList.addEventListener("click", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  if (target.classList.contains("delete-btn")) {
-    deleteHabit(target.dataset.id ?? "");
-  }
-});
-
-habitList.addEventListener("change", (event) => {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  if (target.classList.contains("toggle-checkbox")) {
-    toggleHabit(target.dataset.id ?? "");
-  }
-});
-
-initialize();
+// Render the application to the DOM
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<HabitTracker />);
